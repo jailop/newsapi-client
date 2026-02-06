@@ -47,7 +47,7 @@ formatting.
 
 Authentication to NewsAPI requires an API key, which must be obtained by
 registering at https://newsapi.org. NewsAPI offers free tier accounts
-suitable for light usage and development.
+suitable for development.
 
 This software is not affiliated with NewsAPI.org.
 
@@ -243,7 +243,7 @@ support must be enabled during compilation.
 Install from the Nimble package repository:
 
 ```bash
-nimble install newsapi-client
+nimble install newsapi_client
 ```
 
 Or clone the repository and build locally:
@@ -262,8 +262,8 @@ nimble install
 Retrieve technology headlines from the United States:
 
 ```nim
+import std/asyncdispatch
 import newsapi_client
-import asyncdispatch
 
 proc getHeadlines() {.async.} =
   let req = HeadLinesRequest(
@@ -289,8 +289,8 @@ waitFor getHeadlines()
 Search for articles about artificial intelligence:
 
 ```nim
+import std/asyncdispatch
 import newsapi_client
-import asyncdispatch
 
 proc searchArticles() {.async.} =
   let req = EverythingRequest(
