@@ -4,11 +4,6 @@ import newsapi_client
 const version = "0.1.0"
 
 type
-  ## CommandType enumerates the available command-line commands recognized
-  ## by the newsapi utility. Values correspond to the three primary NewsAPI
-  ## endpoints (headlines, sources, everything) plus help and version
-  ## requests. The ctNone value indicates an unrecognized or missing
-  ## command.
   CommandType* = enum
     ctNone,
     ctHeadlines,
@@ -17,12 +12,6 @@ type
     ctHelp,
     ctVersion
 
-  ## Args contains the parsed command-line arguments and options for a
-  ## newsapi invocation. The command field identifies which operation to
-  ## perform. Remaining fields correspond to API request parameters,
-  ## organized by the commands they apply to. The pageSize, page, format,
-  ## and outputFile fields apply to all commands. Comments indicate field
-  ## sharing across multiple commands.
   Args* = object
     command*: CommandType
     # Headlines options
@@ -45,20 +34,11 @@ type
     format*: OutputFormat
     outputFile*: string
 
-  ## OutputFormat specifies the output format for command results. The
-  ## ofMarkdown value produces human-readable formatted output with headers
-  ## and structure. The ofJson value outputs compact JSON without
-  ## whitespace. The ofJsonPretty value outputs indented JSON with line
-  ## breaks for readability.
   OutputFormat* = enum
     ofMarkdown,
     ofJson,
     ofJsonPretty
 
-## showHelp displays usage information including available commands,
-## options, environment variables, and examples. The procedure writes the
-## help text to standard output and exits with status 0. This is invoked
-## when the user specifies --help or -h flags.
 proc showHelp() =
   echo """
 NewsAPI Command Line Client
@@ -116,10 +96,6 @@ This software is not affiliated with NewsAPI.org
 """
   quit(0)
 
-## getApiKey retrieves the NewsAPI authentication token from the
-## NEWSAPI_KEY environment variable. If the variable is unset or empty, the
-## procedure writes an error message to standard error and exits with
-## status 1. This check ensures all API requests have valid authentication.
 proc getApiKey(): string =
   result = getEnv("NEWSAPI_KEY")
   if result == "":
@@ -127,22 +103,16 @@ proc getApiKey(): string =
     stderr.writeLine("Set it with: export NEWSAPI_KEY=your_api_key")
     quit(1)
 
-## matchCommand resolves a command string to a CommandType value. The
-## procedure first checks for exact matches with help and version flags,
-## then attempts prefix matching for command names. This enables command
-## abbreviation where any unambiguous prefix matches the full command name
-## (h for headlines, s for sources, e for everything). Unrecognized inputs
-## return ctNone.
+## Enables command abbreviation: any unambiguous prefix matches the full
+## command name (h for headlines, s for sources, e for everything).
 proc matchCommand(input: string): CommandType =
   let cmd = input.toLowerAscii()
   
-  # Exact matches first
   if cmd in ["--help", "-h", "help"]:
     return ctHelp
   if cmd in ["--version", "-v", "version"]:
     return ctVersion
   
-  # Match command abbreviations
   if "headlines".startsWith(cmd):
     return ctHeadlines
   elif "sources".startsWith(cmd):
@@ -152,13 +122,6 @@ proc matchCommand(input: string): CommandType =
   else:
     return ctNone
 
-## parseArgs processes command-line arguments into an Args object. The
-## procedure expects the command as the first parameter followed by option
-## flags. It performs command resolution, sets default values for each
-## command type, and iterates through options using parseopt. Invalid
-## commands, unknown options, and malformed values cause error messages to
-## standard error and exit with status 1. The procedure handles both long
-## options (--country) and hyphenated variants (--page-size, --pagesize).
 proc parseArgs*(cmdLineParams: seq[string] = commandLineParams()): Args =
   result = Args(
     command: ctNone,
@@ -184,7 +147,6 @@ proc parseArgs*(cmdLineParams: seq[string] = commandLineParams()): Args =
   if result.command in [ctHelp, ctVersion]:
     return
   
-  # Set default pageSize for everything command
   if result.command == ctEverything:
     result.pageSize = 100
   
@@ -238,11 +200,6 @@ proc parseArgs*(cmdLineParams: seq[string] = commandLineParams()): Args =
       stderr.writeLine("Unexpected argument: " & p.key)
       quit(1)
 
-## articlesToMarkdown converts a sequence of NewsArticle objects to
-## markdown-formatted text. Each article becomes a level-2 heading with
-## metadata fields (source, author, publication date), description,
-## read-more link, and optional image. Articles are separated by horizontal
-## rules. Empty fields are omitted from output.
 proc articlesToMarkdown(articles: seq[NewsArticle]): string =
   result = ""
   for article in articles:
@@ -258,12 +215,6 @@ proc articlesToMarkdown(articles: seq[NewsArticle]): string =
       result.add("![Image](" & article.urlToImage & ")\n\n")
     result.add("---\n\n")
 
-## articlesToMarkdown converts a JSON array of article objects to
-## markdown-formatted text. This overload operates on JsonNode types for
-## cases where JSON parsing is performed directly without deserializing to
-## NewsArticle objects. Field extraction uses safe accessors with default
-## values for missing data. Output structure matches the NewsArticle
-## overload.
 proc articlesToMarkdown(articles: JsonNode): string =
   result = ""
   for i, article in articles:
@@ -287,11 +238,6 @@ proc articlesToMarkdown(articles: JsonNode): string =
       result.add("![Image](" & urlToImage & ")\n\n")
     result.add("---\n\n")
 
-## sourcesToMarkdown converts a sequence of NewsSource objects to
-## markdown-formatted text. Each source becomes a level-2 heading under a
-## main "News Sources" title. Metadata includes source identifier, category,
-## language, country, description, and website link. Sources are separated
-## by horizontal rules. Empty fields are omitted from output.
 proc sourcesToMarkdown(sources: seq[NewsSource]): string =
   result = "# News Sources\n\n"
   for source in sources:
@@ -309,12 +255,6 @@ proc sourcesToMarkdown(sources: seq[NewsSource]): string =
       result.add("[Visit source](" & source.url & ")\n\n")
     result.add("---\n\n")
 
-## sourcesToMarkdown converts a JSON array of source objects to
-## markdown-formatted text. This overload operates on JsonNode types for
-## cases where JSON parsing is performed directly without deserializing to
-## NewsSource objects. Field extraction uses safe accessors with default
-## values for missing data. Output structure matches the NewsSource
-## overload.
 proc sourcesToMarkdown(sources: JsonNode): string =
   result = "# News Sources\n\n"
   for source in sources:
@@ -341,12 +281,6 @@ proc sourcesToMarkdown(sources: JsonNode): string =
       result.add("[Visit source](" & url & ")\n\n")
     result.add("---\n\n")
 
-## outputResult formats and outputs a NewsResponse according to the
-## specified format. The markdown format includes a header with total
-## result count followed by article listings. JSON formats serialize the
-## response object directly. When outputFile is specified, content is
-## written to that path with a confirmation message. Otherwise content goes
-## to standard output.
 proc outputResult(response: NewsResponse, format: OutputFormat, outputFile: string) =
   var output = ""
   
@@ -367,11 +301,6 @@ proc outputResult(response: NewsResponse, format: OutputFormat, outputFile: stri
   else:
     echo output
 
-## outputResult formats and outputs a SourcesResponse according to the
-## specified format. The markdown format produces a formatted list of news
-## sources with metadata. JSON formats serialize the response object
-## directly. When outputFile is specified, content is written to that path
-## with a confirmation message. Otherwise content goes to standard output.
 proc outputResult(response: SourcesResponse, format: OutputFormat, outputFile: string) =
   var output = ""
   
@@ -389,14 +318,6 @@ proc outputResult(response: SourcesResponse, format: OutputFormat, outputFile: s
   else:
     echo output
 
-## outputResult formats and outputs raw JSON response data according to the
-## specified format. The markdown format attempts JSON parsing to detect
-## response type (articles or sources) and format accordingly. Error
-## responses are formatted with code and message. JSON parsing failures
-## fall back to raw output. JSON formats output data directly or with
-## pretty printing. When outputFile is specified, content is written to
-## that path with a confirmation message. Otherwise content goes to
-## standard output.
 proc outputResult(jsonData: string, format: OutputFormat, outputFile: string) =
   var output = ""
   
@@ -411,7 +332,6 @@ proc outputResult(jsonData: string, format: OutputFormat, outputFile: string) =
         let message = parsed{"message"}.getStr("An error occurred")
         output = "# Error\n\n**Code:** " & code & "  \n**Message:** " & message & "\n"
       else:
-        # Check if it's articles or sources response
         if parsed.hasKey("articles"):
           let totalResults = parsed{"totalResults"}.getInt(0)
           output = "# News Articles\n\n"
@@ -439,12 +359,6 @@ proc outputResult(jsonData: string, format: OutputFormat, outputFile: string) =
   else:
     echo output
 
-## executeHeadlines performs a top headlines request using parameters from
-## the Args object. The procedure validates that either country or sources
-## is specified, as required by the API. It constructs a HeadLinesRequest
-## with the API key from the environment, executes the request
-## asynchronously, and outputs the formatted result. Missing required
-## parameters cause error messages to standard error and exit with status 1.
 proc executeHeadlines(args: Args) {.async.} =
   if args.country == "" and args.sources.len == 0:
     stderr.writeLine("Error: headlines command requires either --country or --sources")
@@ -463,11 +377,6 @@ proc executeHeadlines(args: Args) {.async.} =
   let response = await pull(req)
   outputResult(response, args.format, args.outputFile)
 
-## executeSources performs a sources discovery request using parameters
-## from the Args object. All parameters are optional, allowing retrieval of
-## the complete source catalog or filtered subsets. The procedure
-## constructs a SourcesRequest with the API key from the environment,
-## executes the request asynchronously, and outputs the formatted result.
 proc executeSources(args: Args) {.async.} =
   let req = SourcesRequest(
     apiKey: getApiKey(),
@@ -479,13 +388,6 @@ proc executeSources(args: Args) {.async.} =
   let response = await pull(req)
   outputResult(response, args.format, args.outputFile)
 
-## executeEverything performs a comprehensive article search using
-## parameters from the Args object. The procedure validates that the query
-## parameter is specified, as required by the API. It constructs an
-## EverythingRequest with the API key from the environment, executes the
-## request asynchronously, and outputs the formatted result. Missing query
-## parameter causes an error message to standard error and exit with
-## status 1.
 proc executeEverything(args: Args) {.async.} =
   if args.query == "":
     stderr.writeLine("Error: --query is required for 'everything' command")
@@ -509,20 +411,10 @@ proc executeEverything(args: Args) {.async.} =
   let response = await pull(req)
   outputResult(response, args.format, args.outputFile)
 
-## showVersion displays the newsapi utility version number to standard
-## output and exits with status 0. This is invoked when the user specifies
-## --version or -v flags.
 proc showVersion() =
   echo "NewsAPI CLI version ", version
   quit(0)
 
-## main is the primary entry point for the newsapi command-line utility.
-## The procedure parses command-line arguments, dispatches to the
-## appropriate command handler based on the command type, and handles
-## special cases for help and version requests. The ctNone case indicates
-## an error condition where no valid command was specified. All command
-## handlers are invoked asynchronously to support the async API client
-## implementation.
 proc main() {.async.} =
   let args = parseArgs()
   
